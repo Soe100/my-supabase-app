@@ -138,6 +138,33 @@ function AuthScreen({ onLogin }) {
               {isLogin ? "Don't have an account? Register" : 'Already have an account? Sign In'}
             </button>
           </div>
+
+          {isLogin && (
+            <div className="mt-3 text-center">
+              <button
+                type="button"
+                onClick={async () => {
+                  if (!email) {
+                    setError('Please enter your email first');
+                    return;
+                  }
+
+                  const { error } = await supabase.auth.resetPasswordForEmail(email, {
+                    redirectTo: window.location.origin,
+                  });
+
+                  if (error) {
+                    setError(error.message);
+                  } else {
+                    setError('Password reset link sent to your email');
+                  }
+                }}
+                className="text-sm text-gray-500 hover:underline"
+              >
+                Forgot password?
+              </button>
+            </div>
+          )}
         </div>
       </div>
     </div>
@@ -188,9 +215,29 @@ export default function HVACSimpleCRM() {
       setUser(data.session?.user || null);
       setAuthLoading(false);
     });
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((_, session) => {
-      setUser(session?.user || null);
-    });
+
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(
+      async (event, session) => {
+
+        // 🔐 PASSWORD RECOVERY FLOW
+        if (event === 'PASSWORD_RECOVERY') {
+          const newPassword = prompt('Enter your new password (min 6 characters)');
+          if (newPassword && newPassword.length >= 6) {
+            const { error } = await supabase.auth.updateUser({ password: newPassword });
+            if (error) {
+              alert('Error updating password');
+            } else {
+              alert('Password updated successfully');
+            }
+          } else {
+            alert('Password must be at least 6 characters');
+          }
+        }
+
+        setUser(session?.user || null);
+      }
+    );
+
     return () => subscription.unsubscribe();
   }, []);
 
